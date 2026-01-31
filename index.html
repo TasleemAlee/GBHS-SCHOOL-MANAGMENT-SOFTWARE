@@ -1,0 +1,55 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zenith School Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: 'var(--primary-color)',
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Sharp" rel="stylesheet">
+    <link rel="stylesheet" href="https://esm.sh/react-easy-crop/style.css" />
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      .material-icons-sharp {
+        font-size: 20px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "jspdf": "https://esm.sh/jspdf@^4.0.0",
+    "html2canvas": "https://esm.sh/html2canvas@^1.4.1",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
+    "pdfjs-dist/build/pdf.js": "https://esm.sh/pdfjs-dist@^4.4.168/build/pdf.js",
+    "xlsx": "https://esm.sh/xlsx@^0.18.5",
+    "pdfjs-dist/": "https://esm.sh/pdfjs-dist@^5.4.530/",
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@^5.0.7",
+    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+    "react-easy-crop": "https://esm.sh/react-easy-crop@^5.0.7"
+  }
+}
+</script>
+</head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "name": "Copy of Copy of GBHS SABU RAHU Management System",
+  "description": "Professional Management System for Govt Boys High School Sabu Rahu. Optimized for official student registration and SLC generation.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
