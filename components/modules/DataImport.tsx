@@ -22,6 +22,30 @@ const DataImport: React.FC = () => {
     const [showSuccessOptions, setShowSuccessOptions] = useState(false);
     const [importedCount, setImportedCount] = useState(0);
 
+    const formatExcelDate = (val: any): string => {
+        if (!val) return '';
+        let d: Date;
+        
+        // Handle JS Date objects (often produced by XLSX with cellDates: true)
+        if (val instanceof Date) {
+            d = val;
+        } 
+        // Handle numeric values (Excel serial dates)
+        else if (typeof val === 'number') {
+            // Excel dates are number of days since 1899-12-30
+            d = new Date(Math.round((val - 25569) * 864e5));
+        } 
+        // Handle strings
+        else {
+            d = new Date(val);
+        }
+
+        if (!isNaN(d.getTime())) {
+            return d.toISOString().split('T')[0];
+        }
+        return String(val);
+    };
+
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
@@ -34,7 +58,8 @@ const DataImport: React.FC = () => {
         reader.onload = (e) => {
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
+                // Use cellDates: true to let XLSX handle numeric dates as JS Date objects where possible
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 
@@ -77,7 +102,6 @@ const DataImport: React.FC = () => {
             const mappedStudents: Student[] = previewData.map((row, idx) => {
                 const studentId = Date.now() + idx;
                 
-                // Strict mapping based on the provided 15-column sequence
                 const name = row['Name of Pupil'] || row['Student Name'] || row.Name || 'Unknown Student';
                 const rollNo = row['General Register No.'] || row['GR No'] || row.rollno || `GR-${idx + 1}`;
                 const classValue = String(row['Class in Which Admitted'] || row['Class From Which Left'] || row.Class || 'N/A');
@@ -89,19 +113,19 @@ const DataImport: React.FC = () => {
                     rollNo,
                     class: classValue,
                     fatherName: row['Father Name'] || '',
-                    dob: row['Date of Birth (Numerical)'] || row.dob || '',
-                    parentContact: row['Parent Contact'] || '',
-                    profilePicUrl: `https://i.pravatar.cc/150?u=${rollNo}`,
+                    dob: formatExcelDate(row['Date of Birth (Numerical)'] || row['Date of Birth'] || row.dob),
+                    parentContact: row['Parent Contact'] || row['Contact Number'] || '',
+                    profilePicUrl: '', // No random pictures
                     address: row['Place of Birth'] || row.Address || '',
                     bloodGroup: '',
-                    admissionDate: row['Date of Admission'] || new Date().toISOString().split('T')[0],
+                    admissionDate: formatExcelDate(row['Date of Admission'] || row.admissionDate),
                     status: row.Status || 'Studying'
                 };
             });
 
             setStudents(prev => [...prev, ...mappedStudents]);
             finalCount = mappedStudents.length;
-            addActivity('Data Import', `Imported ${finalCount} students matching GBHS 15-column sequence.`);
+            addActivity('Data Import', `Imported ${finalCount} students matching registry sequence.`);
         } else {
             const newHeaders = Array.from(new Set([...staffHeaders, ...fileHeaders]));
             setStaffHeaders(newHeaders);
@@ -109,14 +133,14 @@ const DataImport: React.FC = () => {
             const mappedStaff: Staff[] = previewData.map((row, idx) => ({
                 ...row,
                 id: Date.now() + idx,
-                name: row['FULL NAME WITH CNIC NUMBER'] || row.Name || 'Unknown Staff',
-                employeeId: row['PERSONAL NUMBER'] || row.employeeid || `E-${idx + 1}`,
-                role: 'Teacher',
-                subject: row['SUBJECT SPECIALIZATION CODE'] || '',
-                contact: '',
-                phoneNumber: '',
-                joinDate: new Date().toISOString().split('T')[0],
-                profilePicUrl: `https://i.pravatar.cc/150?u=${idx}`
+                name: row['Name in Full'] || row['FULL NAME WITH CNIC NUMBER'] || row.Name || 'Unknown Staff',
+                employeeId: row['Personal ID'] || row['PERSONAL NUMBER'] || row.employeeid || `E-${idx + 1}`,
+                role: (row['Designation'] || 'Teacher') as any,
+                subject: row['SUBJECT SPECIALIZATION CODE'] || row['Subject'] || '',
+                contact: row['Contact Number'] || '',
+                phoneNumber: row['Contact Number'] || '',
+                joinDate: formatExcelDate(row['Date of Entry in Govt. Service'] || row['Join Date'] || new Date()),
+                profilePicUrl: '' // No random pictures
             }));
 
             setStaff(prev => [...prev, ...mappedStaff]);

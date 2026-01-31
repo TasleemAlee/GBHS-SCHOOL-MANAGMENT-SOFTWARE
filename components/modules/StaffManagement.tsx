@@ -6,6 +6,21 @@ import Button from '../common/Button';
 import ConfirmationModal from '../common/ConfirmationModal';
 import ImageCropper from '../common/ImageCropper';
 
+const normalizeDateForInput = (dateStr: any): string => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().split('T')[0];
+};
+
+const findValueCaseInsensitive = (obj: any, key: string): any => {
+    if (!obj) return undefined;
+    if (obj[key] !== undefined) return obj[key];
+    const lowerKey = key.toLowerCase();
+    const foundKey = Object.keys(obj).find(k => k.toLowerCase() === lowerKey);
+    return foundKey ? obj[foundKey] : undefined;
+};
+
 const StaffFormModal: React.FC<{ 
     onClose: () => void; 
     onSave: (staff: Omit<Staff, 'id'> | Staff) => void;
@@ -13,9 +28,28 @@ const StaffFormModal: React.FC<{
 }> = ({ onClose, onSave, initialData }) => {
     const { staffHeaders, schoolSettings } = useApp();
     const [formState, setFormState] = useState(() => {
-        if (initialData) return { ...initialData };
-        const initial: any = { profilePicUrl: '', role: 'Teacher', joinDate: new Date().toISOString().split('T')[0] };
-        staffHeaders.forEach(h => initial[h] = '');
+        const initial: any = { 
+            profilePicUrl: initialData?.profilePicUrl || '', 
+            role: initialData?.role || 'Teacher', 
+            id: initialData?.id 
+        };
+
+        staffHeaders.forEach(h => {
+            let val = findValueCaseInsensitive(initialData, h);
+            if (h.includes('Date') || h.toLowerCase().includes('dob')) {
+                initial[h] = normalizeDateForInput(val);
+            } else {
+                initial[h] = val !== undefined ? val : '';
+            }
+        });
+
+        // Ensure core joinDate is synchronized
+        if (initialData) {
+            initial.joinDate = normalizeDateForInput(initialData.joinDate);
+        } else {
+            initial.joinDate = new Date().toISOString().split('T')[0];
+        }
+
         return initial;
     });
 
@@ -88,16 +122,21 @@ const StaffFormModal: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({
+        
+        // Map dynamic header fields back to strict interface fields
+        const finalStaff = {
             ...formState,
             name: formState['Name in Full'] || formState.name || 'Staff Member',
             employeeId: formState['Personal ID'] || formState.employeeId || 'N/A',
-        });
+            joinDate: formState['Date of Entry in Govt. Service'] || formState.joinDate || ''
+        };
+
+        onSave(finalStaff);
         onClose();
     };
 
     const nameForAvatar = formState['Name in Full'] || formState.name || '?';
-    const initial = nameForAvatar.charAt(0).toUpperCase();
+    const initialChar = nameForAvatar.charAt(0).toUpperCase();
 
     return (
         <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center p-4 overflow-y-auto">
@@ -136,7 +175,7 @@ const StaffFormModal: React.FC<{
                                         <img src={formState.profilePicUrl} className="h-32 w-32 rounded-full object-cover border-4 shadow-md" alt="" />
                                     ) : (
                                         <div className="h-32 w-32 rounded-full border-4 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center bg-gray-50 dark:bg-gray-900 shadow-xl">
-                                            <span className="text-5xl font-black" style={{ color: schoolSettings.primaryColor }}>{initial}</span>
+                                            <span className="text-5xl font-black" style={{ color: schoolSettings.primaryColor }}>{initialChar}</span>
                                         </div>
                                     )}
                                     <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -158,7 +197,14 @@ const StaffFormModal: React.FC<{
                             {staffHeaders.map(header => (
                                 <div key={header} className="space-y-1">
                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{header}</label>
-                                    <input name={header} type={header.includes('Date') ? 'date' : 'text'} value={formState[header] || ''} onChange={handleChange} className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:text-white text-xs font-bold outline-none focus:ring-2 ring-emerald-500" required />
+                                    <input 
+                                        name={header} 
+                                        type={header.includes('Date') || header.toLowerCase().includes('dob') ? 'date' : 'text'} 
+                                        value={formState[header] || ''} 
+                                        onChange={handleChange} 
+                                        className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:text-white text-xs font-bold outline-none focus:ring-2 ring-emerald-500" 
+                                        required 
+                                    />
                                 </div>
                             ))}
                         </div>

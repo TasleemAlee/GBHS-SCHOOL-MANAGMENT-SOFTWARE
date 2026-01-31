@@ -6,6 +6,21 @@ import Button from '../common/Button';
 import ConfirmationModal from '../common/ConfirmationModal';
 import ImageCropper from '../common/ImageCropper';
 
+const normalizeDateForInput = (dateStr: any): string => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().split('T')[0];
+};
+
+const findValueCaseInsensitive = (obj: any, key: string): any => {
+    if (!obj) return undefined;
+    if (obj[key] !== undefined) return obj[key];
+    const lowerKey = key.toLowerCase();
+    const foundKey = Object.keys(obj).find(k => k.toLowerCase() === lowerKey);
+    return foundKey ? obj[foundKey] : undefined;
+};
+
 const StudentFormModal: React.FC<{
     onClose: () => void; 
     onSave: (student: Omit<Student, 'id'> | Student) => void;
@@ -13,14 +28,28 @@ const StudentFormModal: React.FC<{
 }> = ({ onClose, onSave, initialData }) => {
     const { studentHeaders, schoolSettings } = useApp();
     const [formState, setFormState] = useState(() => {
-        if (initialData) return initialData;
         const initial: any = { 
-            profilePicUrl: '', 
-            class: '', 
-            status: 'Studying', 
-            admissionDate: new Date().toISOString().split('T')[0] 
+            profilePicUrl: initialData?.profilePicUrl || '', 
+            class: initialData?.class || '', 
+            status: initialData?.status || 'Studying',
+            id: initialData?.id
         };
-        studentHeaders.forEach(h => { if (initial[h] === undefined) initial[h] = ''; });
+
+        studentHeaders.forEach(h => {
+            let val = findValueCaseInsensitive(initialData, h);
+            if (h.includes('Date') || h.toLowerCase().includes('dob')) {
+                initial[h] = normalizeDateForInput(val);
+            } else {
+                initial[h] = val !== undefined ? val : '';
+            }
+        });
+
+        // Ensure core fields are initialized if not in headers
+        if (initialData) {
+            initial.dob = normalizeDateForInput(initialData.dob);
+            initial.admissionDate = normalizeDateForInput(initialData.admissionDate);
+        }
+
         return initial;
     });
 
@@ -93,16 +122,22 @@ const StudentFormModal: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSave({
+        
+        // Map dynamic header fields back to strict interface fields
+        const finalStudent = {
             ...formState,
             name: formState["Name of Pupil"] || formState.name || 'Student Name',
             rollNo: formState["General Register No."] || formState.rollNo || 'N/A',
-        });
+            dob: formState["Date of Birth (Numerical)"] || formState["Date of Birth"] || formState.dob || '',
+            admissionDate: formState["Date of Admission"] || formState.admissionDate || '',
+        };
+
+        onSave(finalStudent);
         onClose();
     };
 
     const nameForAvatar = formState["Name of Pupil"] || formState.name || '?';
-    const initial = nameForAvatar.charAt(0).toUpperCase();
+    const initialChar = nameForAvatar.charAt(0).toUpperCase();
 
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 overflow-y-auto">
@@ -137,11 +172,11 @@ const StudentFormModal: React.FC<{
                         <div className="flex flex-col items-center mb-6">
                             <div className="relative group">
                                 <div className="relative cursor-pointer" onClick={() => setShowImageOptions(o => !o)}>
-                                    {formState.profilePicUrl && !formState.profilePicUrl.includes('pravatar.cc') ? (
+                                    {formState.profilePicUrl ? (
                                         <img src={formState.profilePicUrl} className="h-32 w-32 rounded-full object-cover border-4 border-indigo-50 dark:border-gray-700 shadow-xl" alt="" />
                                     ) : (
                                         <div className="h-32 w-32 rounded-full border-4 border-dashed border-gray-200 dark:border-gray-700 flex items-center justify-center bg-gray-50 dark:bg-gray-900 shadow-xl">
-                                            <span className="text-5xl font-black" style={{ color: schoolSettings.primaryColor }}>{initial}</span>
+                                            <span className="text-5xl font-black" style={{ color: schoolSettings.primaryColor }}>{initialChar}</span>
                                         </div>
                                     )}
                                     <div className="absolute inset-0 bg-indigo-600/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
@@ -171,7 +206,14 @@ const StudentFormModal: React.FC<{
                             {studentHeaders.filter(h => h !== 'Status').map(header => (
                                 <div key={header} className="space-y-1">
                                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{header}</label>
-                                    <input name={header} type={header.includes('Date') || header.includes('DOB') ? 'date' : 'text'} value={formState[header] || ''} onChange={handleChange} className="w-full p-3 rounded-xl border dark:bg-gray-700 focus:ring-2 ring-indigo-500 outline-none text-xs font-bold dark:text-white" required={header.includes('Name') || header.includes('Register')}/>
+                                    <input 
+                                        name={header} 
+                                        type={header.includes('Date') || header.toLowerCase().includes('dob') ? 'date' : 'text'} 
+                                        value={formState[header] || ''} 
+                                        onChange={handleChange} 
+                                        className="w-full p-3 rounded-xl border dark:bg-gray-700 focus:ring-2 ring-indigo-500 outline-none text-xs font-bold dark:text-white" 
+                                        required={header.includes('Name') || header.includes('Register')}
+                                    />
                                 </div>
                             ))}
                         </div>
@@ -245,7 +287,7 @@ const StudentManagement: React.FC<{ setActiveModule: (id: ModuleId) => void }> =
 
     const StudentAvatar = ({ student }: { student: Student }) => {
         const name = student["Name of Pupil"] || student.name || "?";
-        if (student.profilePicUrl && !student.profilePicUrl.includes('pravatar.cc')) {
+        if (student.profilePicUrl) {
             return <img src={student.profilePicUrl} className="h-12 w-12 rounded-2xl object-cover border" alt="" />;
         }
         return (
